@@ -11,4 +11,4 @@ fi
 
 
 echo "--> Building stringsly"
-go build -v -o ${DISTPATH}stringsly${EXTENSION} github.com/cabrel/stringsly
+go build -v -o ${DISTPATH}stringsly${EXTENSION} github.com/cabrel/stringsly/runner

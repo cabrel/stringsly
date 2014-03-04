@@ -1,39 +1,20 @@
-package main
+package stringsly
 
 import (
-	"flag"
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"unicode/utf8"
 )
 
 var (
-	fileToString     = flag.String("file", "", "File to generate strings for")
-	includeLocations = flag.Bool("locations", false, "Include the location of the strings. Defaults to -td")
-	currentOS        string
+	currentOS string
 )
-
-func main() {
-	flag.Parse()
-
-	if len(*fileToString) == 0 {
-		log.Fatal("File must be provided")
-	}
-
-	if runtime.GOOS == "windows" {
-		runStrings(*fileToString, *includeLocations, "")
-	} else {
-		runStrings(*fileToString, *includeLocations, "-eL")
-		runStrings(*fileToString, *includeLocations, "-el")
-		runStrings(*fileToString, *includeLocations, "-eB")
-		runStrings(*fileToString, *includeLocations, "-eb")
-		runStrings(*fileToString, *includeLocations, "-eS")
-		runStrings(*fileToString, *includeLocations, "-es")
-	}
-}
 
 func combine(b1 []byte, b2 []byte) []byte {
 
@@ -43,7 +24,33 @@ func combine(b1 []byte, b2 []byte) []byte {
 	return newslice
 }
 
-func runStrings(filePath string, incLoc bool, opts string) {
+func ParseStrings(filePath string) {
+	rfile, err := os.Open(filePath)
+	defer rfile.Close()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	scanner := bufio.NewScanner(rfile)
+
+	for scanner.Scan() {
+		b := scanner.Bytes()
+
+		for len(b) > 0 {
+			r, size := utf8.DecodeRune(b)
+			fmt.Printf("%c %v\n", r, size)
+
+			b = b[size:]
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Println(err)
+	}
+}
+
+func RunStrings(filePath string, incLoc bool, opts string) {
 	var res []byte
 	var argv []string
 	var ext string
@@ -74,7 +81,7 @@ func runStrings(filePath string, incLoc bool, opts string) {
 	} else if opts == "-eB" {
 		ext = "32bitbe"
 	} else if opts == "-eb" {
-		ext = "32bitle"
+		ext = "16bitbe"
 	} else if opts == "-eS" {
 		ext = "8bit"
 	} else if opts == "-es" {
@@ -84,6 +91,11 @@ func runStrings(filePath string, incLoc bool, opts string) {
 	}
 
 	res = combine(res, lres)
-	_, fname := filepath.Split(filePath)
-	ioutil.WriteFile(fmt.Sprintf("%s.str.%s", fname, ext), res, 0777)
+
+	if len(res) > 0 {
+		_, fname := filepath.Split(filePath)
+		ioutil.WriteFile(fmt.Sprintf("%s.%s", fname, ext), res, 0777)
+	} else {
+		fmt.Printf("No entries for %s\n", ext)
+	}
 }
